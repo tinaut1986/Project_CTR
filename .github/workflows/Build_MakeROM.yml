@@ -43,3 +43,35 @@ jobs:
           name: ${{ matrix.prog }}-${{ matrix.dist }}
           path: ./${{ matrix.prog }}/bin/${{ matrix.prog }}${{ matrix.binExt }}
           if-no-files-found: error
+
+  # Fork only (tinaut1986/Project_CTR): every push to master replaces the binaries of one fixed release, so scripts can
+  # always download the latest build from the same URL. Never runs in the upstream repository.
+  publish:
+    name: Publish to the makerom-latest release
+    if: github.repository == 'tinaut1986/Project_CTR' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Upload the binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir out
+          for d in artifacts/makerom-*; do
+            dist=${d#artifacts/makerom-}
+            for f in "$d"/*; do
+              ext=""; case "$f" in *.exe) ext=".exe" ;; esac
+              cp "$f" "out/makerom-$dist$ext"
+            done
+          done
+          ls -la out
+          notes="makerom built from ${GITHUB_SHA::7} on master of this fork (fix for the minor title version, 3DSGuy/Project_CTR#169). Replaced on every push."
+          gh release view makerom-latest >/dev/null 2>&1 || gh release create makerom-latest --title "MakeROM (latest fork build)" --notes "$notes" --target "$GITHUB_SHA"
+          gh release edit makerom-latest --notes "$notes"
+          gh release upload makerom-latest out/* --clobber
