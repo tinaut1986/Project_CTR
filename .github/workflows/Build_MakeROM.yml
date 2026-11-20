@@ -48,7 +48,8 @@ jobs:
   # always download the latest build from the same URL. Never runs in the upstream repository.
   publish:
     name: Publish to the makerom-latest release
-    if: github.repository == 'tinaut1986/Project_CTR' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # always(): a platform GitHub has no runner for (macOS x86_64 queues for hours) must not hold back the others.
+    if: always() && github.repository == 'tinaut1986/Project_CTR' && github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -71,6 +72,7 @@ jobs:
             done
           done
           ls -la out
+          [ -f out/makerom-win_x86_64.exe ] || { echo "no Windows build: nothing published"; exit 1; }
           notes="makerom built from ${GITHUB_SHA::7} on master of this fork (fix for the minor title version, 3DSGuy/Project_CTR#169). Replaced on every push."
           gh release view makerom-latest >/dev/null 2>&1 || gh release create makerom-latest --title "MakeROM (latest fork build)" --notes "$notes" --target "$GITHUB_SHA"
           gh release edit makerom-latest --notes "$notes"
